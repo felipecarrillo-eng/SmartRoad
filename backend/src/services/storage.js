@@ -2,6 +2,16 @@ const mysql = require('mysql2/promise');
 
 const RIS = ['BAJO', 'MEDIO', 'CRITICO'];
 
+function toMysqlDateTime(value) {
+  const date = value ? new Date(value) : new Date();
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date.toISOString().slice(0, 19).replace('T', ' ');
+}
+
 function riskRank(r) {
   return RIS.indexOf(r);
 }
@@ -100,19 +110,24 @@ class MemoryStore {
   async deleteConductor(id) {
     const d = this.drivers.find((x) => x.id === Number(id));
     if (!d) return { deleted: false };
-    // Vehículos asignados a esta persona y todo su historial.
-    const vehicleIds = this.vehicles.filter((v) => Number(v.conductor_id) === Number(d.id)).map((v) => v.id);
+
+    const vehicleIds = this.vehicles
+      .filter((v) => Number(v.conductor_id) === Number(d.id))
+      .map((v) => v.id);
+
     const before = {
       telemetry: this.telemetry.length,
       events: this.events.length,
       alerts: this.alerts.length
     };
+
     this.telemetry = this.telemetry.filter((t) => !vehicleIds.includes(Number(t.vehiculo_id)));
     this.events = this.events.filter((e) => !vehicleIds.includes(Number(e.vehiculo_id)));
     this.alerts = this.alerts.filter((a) => !vehicleIds.includes(Number(a.vehiculo_id)));
     this.vehicles = this.vehicles.filter((v) => !vehicleIds.includes(v.id));
-    // Cuenta de acceso vinculada.
+
     let usuario = 0;
+
     if (d.usuario_id) {
       const i = this.users.findIndex((u) => u.id === Number(d.usuario_id));
       if (i >= 0) {
@@ -120,7 +135,9 @@ class MemoryStore {
         usuario = 1;
       }
     }
+
     this.drivers.splice(this.drivers.indexOf(d), 1);
+
     return {
       deleted: true,
       usuario,
@@ -132,7 +149,8 @@ class MemoryStore {
   }
 
   async listVehicles() {
-    return this.vehicles.map((v) => ({ ...v })).sort((a, b) => a.codigo.localeCompare(b.codigo));
+    return this.vehicles.map((v) => ({ ...v }))
+      .sort((a, b) => a.codigo.localeCompare(b.codigo));
   }
 
   async getVehicle(id) {
@@ -156,17 +174,25 @@ class MemoryStore {
       ultima_actividad: new Date().toISOString(),
       ...data
     };
+
     this.vehicles.push(row);
-    const driver = data.conductor_id ? this.drivers.find((d) => d.id === Number(data.conductor_id)) : null;
+
+    const driver = data.conductor_id
+      ? this.drivers.find((d) => d.id === Number(data.conductor_id))
+      : null;
+
     if (driver) row.conductor_nombre = driver.nombre;
+
     return { ...row };
   }
 
   async updateVehicle(id, patch) {
     const v = this.vehicles.find((x) => x.id === Number(id));
     if (!v) return null;
+
     Object.assign(v, patch);
     v.ultima_actividad = new Date().toISOString();
+
     return { ...v };
   }
 
@@ -182,13 +208,17 @@ class MemoryStore {
   }
 
   async listEvents(filter = {}) {
-    let rows = [...this.events].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    let rows = [...this.events]
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
     if (filter.tipo) rows = rows.filter((e) => e.tipo === filter.tipo);
     if (filter.riesgo) rows = rows.filter((e) => e.riesgo === filter.riesgo);
     if (filter.vehiculo_id) rows = rows.filter((e) => e.vehiculo_id === Number(filter.vehiculo_id));
     if (filter.desde) rows = rows.filter((e) => new Date(e.timestamp) >= new Date(filter.desde));
     if (filter.hasta) rows = rows.filter((e) => new Date(e.timestamp) <= new Date(filter.hasta));
+
     if (!filter.solo_anomalias || filter.solo_anomalias !== 'true') return rows;
+
     return rows.filter((e) => e.riesgo !== 'BAJO');
   }
 
@@ -197,7 +227,10 @@ class MemoryStore {
   }
 
   async createEvent(evt) {
-    const vehicle = evt.vehiculo_id ? this.vehicles.find((v) => v.id === Number(evt.vehiculo_id)) : null;
+    const vehicle = evt.vehiculo_id
+      ? this.vehicles.find((v) => v.id === Number(evt.vehiculo_id))
+      : null;
+
     const row = {
       id: this.next('event'),
       atendido: false,
@@ -208,6 +241,7 @@ class MemoryStore {
       ...evt,
       timestamp: evt.timestamp || new Date().toISOString()
     };
+
     this.events.unshift(row);
     return { ...row };
   }
@@ -215,16 +249,21 @@ class MemoryStore {
   async updateEvent(id, patch) {
     const e = this.events.find((x) => x.id === Number(id));
     if (!e) return null;
+
     Object.assign(e, patch);
     return { ...e };
   }
 
   async listActiveAlerts() {
-    return this.alerts.filter((a) => a.estado === 'ACTIVA').sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    return this.alerts
+      .filter((a) => a.estado === 'ACTIVA')
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
   }
 
   async getActiveAlertByVehicle(vehiculoId) {
-    return this.alerts.find((a) => a.vehiculo_id === Number(vehiculoId) && a.estado === 'ACTIVA') || null;
+    return this.alerts.find(
+      (a) => a.vehiculo_id === Number(vehiculoId) && a.estado === 'ACTIVA'
+    ) || null;
   }
 
   async countActiveAlerts() {
@@ -232,8 +271,11 @@ class MemoryStore {
   }
 
   async listAlerts(filter = {}) {
-    let rows = [...this.alerts].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    let rows = [...this.alerts]
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
     if (filter.estado) rows = rows.filter((a) => a.estado === filter.estado);
+
     return rows;
   }
 
@@ -242,7 +284,10 @@ class MemoryStore {
   }
 
   async createAlert(al) {
-    const vehicle = al.vehiculo_id ? this.vehicles.find((v) => v.id === Number(al.vehiculo_id)) : null;
+    const vehicle = al.vehiculo_id
+      ? this.vehicles.find((v) => v.id === Number(al.vehiculo_id))
+      : null;
+
     const row = {
       id: this.next('alert'),
       estado: 'ACTIVA',
@@ -254,6 +299,7 @@ class MemoryStore {
       ...al,
       timestamp: al.timestamp || new Date().toISOString()
     };
+
     this.alerts.unshift(row);
     return { ...row };
   }
@@ -261,17 +307,25 @@ class MemoryStore {
   async updateAlert(id, patch) {
     const a = this.alerts.find((x) => x.id === Number(id));
     if (!a) return null;
+
     Object.assign(a, patch);
     return { ...a };
   }
 
   async upsertTelemetry(vehiculoId, data) {
     let t = this.telemetry.find((x) => x.vehiculo_id === Number(vehiculoId));
+
     if (!t) {
-      t = { vehiculo_id: Number(vehiculoId), imei: data.imei || 'N/D', ultimo_heartbeat: null };
+      t = {
+        vehiculo_id: Number(vehiculoId),
+        imei: data.imei || 'N/D',
+        ultimo_heartbeat: null
+      };
       this.telemetry.push(t);
     }
+
     Object.assign(t, data, { ultimo_heartbeat: new Date().toISOString() });
+
     return { ...t };
   }
 
@@ -315,6 +369,7 @@ class MySqlStore {
       } catch (_logErr) {
         console.warn('[storage] No se pudo registrar el error de BD en system_logs:', _logErr.message);
       }
+
       throw err;
     }
   }
@@ -332,38 +387,72 @@ class MySqlStore {
   async writeLog(entry) {
     const [res] = await this.pool.execute(
       'INSERT INTO system_logs (nivel, origen_ip, mensaje) VALUES (?, ?, ?)',
-      [entry.nivel || 'INFO', entry.origen_ip || null, String(entry.mensaje || '').slice(0, 512)]
+      [
+        entry.nivel || 'INFO',
+        entry.origen_ip || null,
+        String(entry.mensaje || '').slice(0, 512)
+      ]
     );
-    return { id: res.insertId, fecha_hora: new Date().toISOString(), nivel: entry.nivel || 'INFO', origen_ip: entry.origen_ip || null, mensaje: String(entry.mensaje || '').slice(0, 512) };
+
+    return {
+      id: res.insertId,
+      fecha_hora: new Date().toISOString(),
+      nivel: entry.nivel || 'INFO',
+      origen_ip: entry.origen_ip || null,
+      mensaje: String(entry.mensaje || '').slice(0, 512)
+    };
   }
 
   async listSystemLogs(limit = 100) {
     const n = Math.min(Math.max(Number(limit) || 100, 1), 1000);
-    const rows = await this.q('SELECT id, fecha_hora, nivel, origen_ip, mensaje FROM system_logs ORDER BY id DESC LIMIT ?', [n]);
+    const rows = await this.q(
+      'SELECT id, fecha_hora, nivel, origen_ip, mensaje FROM system_logs ORDER BY id DESC LIMIT ?',
+      [n]
+    );
     return rows;
   }
 
   async findUserByEmail(email) {
-    const rows = await this.q('SELECT id, nombre, email, password_hash, rol, activo, cedula, must_change_password FROM usuarios WHERE email = ? LIMIT 1', [email]);
+    const rows = await this.q(
+      'SELECT id, nombre, email, password_hash, rol, activo, cedula, must_change_password FROM usuarios WHERE email = ? LIMIT 1',
+      [email]
+    );
     return this.row(rows);
   }
 
   async findUserByCedula(cedula) {
     if (!cedula) return null;
-    const rows = await this.q('SELECT id, nombre, email, password_hash, rol, activo, cedula, must_change_password FROM usuarios WHERE cedula = ? LIMIT 1', [String(cedula)]);
+
+    const rows = await this.q(
+      'SELECT id, nombre, email, password_hash, rol, activo, cedula, must_change_password FROM usuarios WHERE cedula = ? LIMIT 1',
+      [String(cedula)]
+    );
+
     return this.row(rows);
   }
 
   async getUserById(id) {
-    const rows = await this.q('SELECT id, nombre, email, password_hash, rol, activo, cedula, must_change_password FROM usuarios WHERE id = ? LIMIT 1', [id]);
+    const rows = await this.q(
+      'SELECT id, nombre, email, password_hash, rol, activo, cedula, must_change_password FROM usuarios WHERE id = ? LIMIT 1',
+      [id]
+    );
     return this.row(rows);
   }
 
   async createUser(user) {
     await this.q(
       'INSERT INTO usuarios (nombre, email, password_hash, rol, activo, cedula, must_change_password) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [user.nombre, user.email, user.password_hash, user.rol || 'conductor', user.activo ?? 1, user.cedula || null, user.must_change_password ? 1 : 0]
+      [
+        user.nombre,
+        user.email,
+        user.password_hash,
+        user.rol || 'conductor',
+        user.activo ?? 1,
+        user.cedula || null,
+        user.must_change_password ? 1 : 0
+      ]
     );
+
     const [ins] = await this.q('SELECT LAST_INSERT_ID() AS id');
     return this.getUserById(ins.id);
   }
@@ -371,34 +460,65 @@ class MySqlStore {
   async updateUser(id, patch) {
     const allowed = ['nombre', 'password_hash', 'activo', 'rol', 'cedula', 'must_change_password'];
     const keys = Object.keys(patch).filter((k) => allowed.includes(k) && patch[k] !== undefined);
+
     if (keys.length) {
-      await this.q(`UPDATE usuarios SET ${keys.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`, [...keys.map((k) => patch[k]), Number(id)]);
+      await this.q(
+        `UPDATE usuarios SET ${keys.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`,
+        [...keys.map((k) => patch[k]), Number(id)]
+      );
     }
+
     return this.getUserById(id);
   }
 
   async findConductorByDocumento(documento) {
     if (!documento) return null;
-    const rows = await this.q('SELECT * FROM conductores WHERE documento = ? LIMIT 1', [String(documento)]);
+
+    const rows = await this.q(
+      'SELECT * FROM conductores WHERE documento = ? LIMIT 1',
+      [String(documento)]
+    );
+
     return this.row(rows);
   }
 
   async findConductorByEmail(email) {
     if (!email) return null;
-    const rows = await this.q('SELECT * FROM conductores WHERE email = ? LIMIT 1', [String(email).toLowerCase()]);
+
+    const rows = await this.q(
+      'SELECT * FROM conductores WHERE email = ? LIMIT 1',
+      [String(email).toLowerCase()]
+    );
+
     return this.row(rows);
   }
 
   async getConductorByUserId(userId) {
-    const rows = await this.q('SELECT * FROM conductores WHERE usuario_id = ? LIMIT 1', [Number(userId)]);
+    const rows = await this.q(
+      'SELECT * FROM conductores WHERE usuario_id = ? LIMIT 1',
+      [Number(userId)]
+    );
+
     return this.row(rows);
   }
 
   async createConductor(data) {
     await this.q(
       'INSERT INTO conductores (nombre, documento, telefono, email, placa, usuario_id, licencia, empresa, tipo_vehiculo, tipo_sangre) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [data.nombre, data.documento, data.telefono || null, data.email || null, data.placa || null, data.usuario_id || null, data.licencia || null, data.empresa || null, data.tipo_vehiculo || null, data.tipo_sangre || null]
+      [
+        data.nombre,
+        data.documento,
+        data.telefono || null,
+        data.email || null,
+        data.placa || null,
+        data.usuario_id || null,
+        data.licencia || null,
+        data.empresa || null,
+        data.tipo_vehiculo || null,
+        data.tipo_sangre || null
+      ]
     );
+
     const [ins] = await this.q('SELECT LAST_INSERT_ID() AS id');
     return this.getDriver(ins.id);
   }
@@ -406,33 +526,50 @@ class MySqlStore {
   async updateConductor(id, patch) {
     const allowed = ['nombre', 'documento', 'telefono', 'email', 'placa', 'usuario_id', 'licencia', 'empresa', 'tipo_vehiculo', 'tipo_sangre'];
     const keys = Object.keys(patch).filter((k) => allowed.includes(k) && patch[k] !== undefined);
+
     if (keys.length) {
-      await this.q(`UPDATE conductores SET ${keys.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`, [...keys.map((k) => patch[k]), Number(id)]);
+      await this.q(
+        `UPDATE conductores SET ${keys.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`,
+        [...keys.map((k) => patch[k]), Number(id)]
+      );
     }
+
     return this.getDriver(id);
   }
 
   async deleteConductor(id) {
     const driver = await this.getDriver(id);
     if (!driver) return { deleted: false };
-    const vehRows = await this.q('SELECT id FROM vehiculos WHERE conductor_id = ?', [Number(id)]);
+
+    const vehRows = await this.q(
+      'SELECT id FROM vehiculos WHERE conductor_id = ?',
+      [Number(id)]
+    );
+
     const vehicleIds = vehRows.map((r) => r.id);
-    // Cuenta de acceso vinculada a la persona.
+
     let usuario = 0;
+
     if (driver.usuario_id) {
       await this.q('DELETE FROM usuarios WHERE id = ?', [Number(driver.usuario_id)]);
       usuario = 1;
     }
-    // Los eventos/alertas/telemetría caen por ON DELETE CASCADE del vehículo.
+
     if (vehicleIds.length) {
-      await this.q(`DELETE FROM vehiculos WHERE id IN (${vehicleIds.map(() => '?').join(',')})`, vehicleIds);
+      await this.q(
+        `DELETE FROM vehiculos WHERE id IN (${vehicleIds.map(() => '?').join(',')})`,
+        vehicleIds
+      );
     }
+
     await this.q('DELETE FROM conductores WHERE id = ?', [Number(id)]);
+
     return { deleted: true, usuario, vehiculos: vehicleIds.length };
   }
 
   vehicleShape(v) {
     if (!v) return null;
+
     return {
       id: v.id,
       codigo: v.codigo,
@@ -455,17 +592,28 @@ class MySqlStore {
   }
 
   async listVehicles() {
-    const rows = await this.q('SELECT v.*, d.nombre AS conductor_nombre FROM vehiculos v LEFT JOIN conductores d ON d.id = v.conductor_id ORDER BY v.codigo');
+    const rows = await this.q(
+      'SELECT v.*, d.nombre AS conductor_nombre FROM vehiculos v LEFT JOIN conductores d ON d.id = v.conductor_id ORDER BY v.codigo'
+    );
+
     return rows.map((r) => this.vehicleShape(r));
   }
 
   async getVehicle(id) {
-    const rows = await this.q('SELECT v.*, d.nombre AS conductor_nombre FROM vehiculos v LEFT JOIN conductores d ON d.id = v.conductor_id WHERE v.id = ? LIMIT 1', [id]);
+    const rows = await this.q(
+      'SELECT v.*, d.nombre AS conductor_nombre FROM vehiculos v LEFT JOIN conductores d ON d.id = v.conductor_id WHERE v.id = ? LIMIT 1',
+      [id]
+    );
+
     return this.vehicleShape(this.row(rows));
   }
 
   async getVehicleByCode(code) {
-    const rows = await this.q('SELECT v.*, d.nombre AS conductor_nombre FROM vehiculos v LEFT JOIN conductores d ON d.id = v.conductor_id WHERE v.codigo = ? LIMIT 1', [code]);
+    const rows = await this.q(
+      'SELECT v.*, d.nombre AS conductor_nombre FROM vehiculos v LEFT JOIN conductores d ON d.id = v.conductor_id WHERE v.codigo = ? LIMIT 1',
+      [code]
+    );
+
     return this.vehicleShape(this.row(rows));
   }
 
@@ -473,26 +621,40 @@ class MySqlStore {
     await this.q(
       'INSERT INTO vehiculos (codigo, nombre, placa, tipo, modelo, conductor_id, ruta, estado, riesgo, lat, lng, velocidad, bateria, imei) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
-        data.codigo, data.nombre || null, data.placa, data.tipo || 'Particular',
-        data.modelo || new Date().getFullYear(), data.conductor_id || null, data.ruta || 'Sin ruta',
-        data.estado || 'DETENIDO', data.riesgo || 'BAJO',
-        data.lat ?? 4.6097, data.lng ?? -74.0817, data.velocidad ?? 0, data.bateria ?? 100,
+        data.codigo,
+        data.nombre || null,
+        data.placa,
+        data.tipo || 'Particular',
+        data.modelo || new Date().getFullYear(),
+        data.conductor_id || null,
+        data.ruta || 'Sin ruta',
+        data.estado || 'DETENIDO',
+        data.riesgo || 'BAJO',
+        data.lat ?? 4.6097,
+        data.lng ?? -74.0817,
+        data.velocidad ?? 0,
+        data.bateria ?? 100,
         data.imei || `SRD-${Date.now().toString().slice(-6)}`
       ]
     );
+
     return this.getVehicleByCode(data.codigo);
   }
 
   async updateVehicle(id, patch) {
     const allowed = ['estado', 'riesgo', 'lat', 'lng', 'velocidad', 'bateria', 'conductor_id'];
     const keys = Object.keys(patch).filter((k) => allowed.includes(k));
+
     if (!keys.length) return this.getVehicle(id);
+
     const vals = keys.map((k) => patch[k]);
     vals.push(id);
+
     await this.q(
       `UPDATE vehiculos SET ${keys.map((k) => `${k} = ?`).join(', ')}, ultima_actividad = NOW() WHERE id = ?`,
       vals
     );
+
     return this.getVehicle(id);
   }
 
@@ -500,6 +662,7 @@ class MySqlStore {
     const rows = await this.q(
       'SELECT d.*, v.id AS vehiculo_id, v.codigo AS vehiculo_codigo, v.riesgo AS vehiculo_riesgo FROM conductores d LEFT JOIN vehiculos v ON v.conductor_id = d.id ORDER BY d.nombre'
     );
+
     return rows.map((d) => ({
       id: d.id,
       nombre: d.nombre,
@@ -518,42 +681,68 @@ class MySqlStore {
       fatiga_actual: Number(d.fatiga_actual),
       viajes: Number(d.viajes),
       riesgo: d.fatiga_actual >= 80 ? 'CRITICO' : d.fatiga_actual >= 50 ? 'MEDIO' : 'BAJO',
-      vehiculo: d.vehiculo_id ? { id: d.vehiculo_id, codigo: d.vehiculo_codigo, riesgo: d.vehiculo_riesgo } : null
+      vehiculo: d.vehiculo_id
+        ? { id: d.vehiculo_id, codigo: d.vehiculo_codigo, riesgo: d.vehiculo_riesgo }
+        : null
     }));
   }
 
   async getDriver(id) {
-    const rows = await this.q('SELECT * FROM conductores WHERE id = ? LIMIT 1', [id]);
+    const rows = await this.q(
+      'SELECT * FROM conductores WHERE id = ? LIMIT 1',
+      [id]
+    );
+
     return this.row(rows);
   }
 
   async listEvents(filter = {}) {
     const cond = [];
     const params = [];
+
     if (filter.tipo) {
       cond.push('tipo = ?');
       params.push(filter.tipo);
     }
+
     if (filter.riesgo) {
       cond.push('riesgo = ?');
       params.push(filter.riesgo);
     }
+
     if (filter.vehiculo_id) {
       cond.push('vehiculo_id = ?');
       params.push(Number(filter.vehiculo_id));
     }
+
     if (filter.desde) {
       cond.push('timestamp >= ?');
       params.push(filter.desde);
     }
+
     if (filter.hasta) {
       cond.push('timestamp <= ?');
       params.push(filter.hasta);
     }
-    if (filter.solo_anomalias === 'true') cond.push('riesgo <> "BAJO"');
+
+    if (filter.solo_anomalias === 'true') {
+      cond.push('riesgo <> "BAJO"');
+    }
+
     const where = cond.length ? `WHERE ${cond.join(' AND ')}` : '';
-    const rows = await this.q(`SELECT e.*, v.codigo AS vehiculo_codigo, v.ruta, d.nombre AS conductor_nombre FROM eventos e LEFT JOIN vehiculos v ON v.id = e.vehiculo_id LEFT JOIN conductores d ON d.id = v.conductor_id ${where} ORDER BY e.timestamp DESC`, params);
-    return rows.map((r) => ({ ...r, lat: Number(r.lat), lng: Number(r.lng), velocidad: Number(r.velocidad), respuesta_ms: Number(r.respuesta_ms || 0) }));
+
+    const rows = await this.q(
+      `SELECT e.*, v.codigo AS vehiculo_codigo, v.ruta, d.nombre AS conductor_nombre FROM eventos e LEFT JOIN vehiculos v ON v.id = e.vehiculo_id LEFT JOIN conductores d ON d.id = v.conductor_id ${where} ORDER BY e.timestamp DESC`,
+      params
+    );
+
+    return rows.map((r) => ({
+      ...r,
+      lat: Number(r.lat),
+      lng: Number(r.lng),
+      velocidad: Number(r.velocidad),
+      respuesta_ms: Number(r.respuesta_ms || 0)
+    }));
   }
 
   async getEvent(id) {
@@ -561,90 +750,195 @@ class MySqlStore {
       'SELECT e.*, v.codigo AS vehiculo_codigo, v.ruta, d.nombre AS conductor_nombre FROM eventos e LEFT JOIN vehiculos v ON v.id = e.vehiculo_id LEFT JOIN conductores d ON d.id = v.conductor_id WHERE e.id = ? LIMIT 1',
       [id]
     );
+
     const r = this.row(rows);
+
     return r
-      ? { ...r, lat: Number(r.lat), lng: Number(r.lng), velocidad: Number(r.velocidad), respuesta_ms: Number(r.respuesta_ms || 0) }
+      ? {
+          ...r,
+          lat: Number(r.lat),
+          lng: Number(r.lng),
+          velocidad: Number(r.velocidad),
+          respuesta_ms: Number(r.respuesta_ms || 0)
+        }
       : null;
   }
 
   async createEvent(evt) {
-    const cols = ['tipo', 'riesgo', 'canal', 'vehiculo_id', 'lat', 'lng', 'velocidad', 'descripcion', 'respuesta_ms', 'timestamp'];
-    const vals = cols.map((c) => evt[c]);
+    const cols = [
+      'tipo',
+      'riesgo',
+      'canal',
+      'vehiculo_id',
+      'lat',
+      'lng',
+      'velocidad',
+      'descripcion',
+      'respuesta_ms',
+      'timestamp'
+    ];
+
+    const vals = cols.map((c) =>
+      c === 'timestamp'
+        ? toMysqlDateTime(evt[c])
+        : evt[c]
+    );
+
     await this.q(
       `INSERT INTO eventos (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`,
       vals.map((v) => (v === undefined ? null : v))
     );
+
     const [ins] = await this.q('SELECT LAST_INSERT_ID() AS id');
+
     return this.getEvent(ins.id);
   }
 
   async updateEvent(id, patch) {
     const allowed = ['atendido', 'atendido_por'];
-    const keys = Object.keys(patch).filter((k) => allowed.includes(k) && patch[k] !== undefined);
+    const keys = Object.keys(patch).filter(
+      (k) => allowed.includes(k) && patch[k] !== undefined
+    );
+
     if (keys.length) {
-      await this.q(`UPDATE eventos SET ${keys.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`, [...keys.map((k) => patch[k]), Number(id)]);
+      await this.q(
+        `UPDATE eventos SET ${keys.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`,
+        [...keys.map((k) => patch[k]), Number(id)]
+      );
     }
+
     return this.getEvent(id);
   }
 
   async listActiveAlerts() {
-    const rows = await this.q('SELECT * FROM alertas WHERE estado = "ACTIVA" ORDER BY timestamp DESC');
-    return rows.map((r) => ({ ...r, lat: Number(r.lat), lng: Number(r.lng), velocidad: Number(r.velocidad) }));
+    const rows = await this.q(
+      'SELECT * FROM alertas WHERE estado = "ACTIVA" ORDER BY timestamp DESC'
+    );
+
+    return rows.map((r) => ({
+      ...r,
+      lat: Number(r.lat),
+      lng: Number(r.lng),
+      velocidad: Number(r.velocidad)
+    }));
   }
 
   async getActiveAlertByVehicle(vehiculoId) {
-    const rows = await this.q('SELECT * FROM alertas WHERE vehiculo_id = ? AND estado = "ACTIVA" ORDER BY timestamp DESC LIMIT 1', [Number(vehiculoId)]);
+    const rows = await this.q(
+      'SELECT * FROM alertas WHERE vehiculo_id = ? AND estado = "ACTIVA" ORDER BY timestamp DESC LIMIT 1',
+      [Number(vehiculoId)]
+    );
+
     const r = this.row(rows);
-    return r ? { ...r, lat: Number(r.lat), lng: Number(r.lng), velocidad: Number(r.velocidad) } : null;
+
+    return r
+      ? { ...r, lat: Number(r.lat), lng: Number(r.lng), velocidad: Number(r.velocidad) }
+      : null;
   }
 
   async countActiveAlerts() {
-    const rows = await this.q('SELECT COUNT(*) AS n FROM alertas WHERE estado = "ACTIVA"');
+    const rows = await this.q(
+      'SELECT COUNT(*) AS n FROM alertas WHERE estado = "ACTIVA"'
+    );
+
     return Number(rows[0].n);
   }
 
   async listAlerts(filter = {}) {
     const rows = await this.q('SELECT * FROM alertas ORDER BY timestamp DESC', []);
-    let out = rows.map((r) => ({ ...r, lat: Number(r.lat), lng: Number(r.lng), velocidad: Number(r.velocidad) }));
-    if (filter.estado) out = out.filter((a) => a.estado === filter.estado);
+
+    let out = rows.map((r) => ({
+      ...r,
+      lat: Number(r.lat),
+      lng: Number(r.lng),
+      velocidad: Number(r.velocidad)
+    }));
+
+    if (filter.estado) {
+      out = out.filter((a) => a.estado === filter.estado);
+    }
+
     return out;
   }
 
   async getAlert(id) {
-    const rows = await this.q('SELECT * FROM alertas WHERE id = ? LIMIT 1', [id]);
+    const rows = await this.q(
+      'SELECT * FROM alertas WHERE id = ? LIMIT 1',
+      [id]
+    );
+
     const r = this.row(rows);
-    return r ? { ...r, lat: Number(r.lat), lng: Number(r.lng), velocidad: Number(r.velocidad) } : null;
+
+    return r
+      ? { ...r, lat: Number(r.lat), lng: Number(r.lng), velocidad: Number(r.velocidad) }
+      : null;
   }
 
   async createAlert(al) {
     await this.q(
       'INSERT INTO alertas (tipo, evento_id, vehiculo_id, riesgo, lat, lng, velocidad, descripcion, estado, iniciada_por, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, "ACTIVA", ?, ?)',
-      [al.tipo, al.evento_id || null, al.vehiculo_id, al.riesgo, al.lat, al.lng, al.velocidad || 0, al.descripcion || '', al.iniciada_por || 'AUTO', al.timestamp || new Date().toISOString()]
+      [
+        al.tipo,
+        al.evento_id || null,
+        al.vehiculo_id,
+        al.riesgo,
+        al.lat,
+        al.lng,
+        al.velocidad || 0,
+        al.descripcion || '',
+        al.iniciada_por || 'AUTO',
+        toMysqlDateTime(al.timestamp)
+      ]
     );
+
     const [ins] = await this.q('SELECT LAST_INSERT_ID() AS id');
+
     return this.getAlert(ins.id);
   }
 
   async updateAlert(id, patch) {
     const allowed = ['estado', 'accion', 'accion_meta'];
-    const keys = Object.keys(patch).filter((k) => allowed.includes(k) && patch[k] !== undefined);
+    const keys = Object.keys(patch).filter(
+      (k) => allowed.includes(k) && patch[k] !== undefined
+    );
+
     if (keys.length) {
-      await this.q(`UPDATE alertas SET ${keys.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`, [...keys.map((k) => patch[k]), Number(id)]);
+      await this.q(
+        `UPDATE alertas SET ${keys.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`,
+        [...keys.map((k) => patch[k]), Number(id)]
+      );
     }
+
     return this.getAlert(id);
   }
 
   async upsertTelemetry(vehiculoId, data) {
     await this.q(
       'INSERT INTO telemetria (vehiculo_id, imei, bateria, senal_gps, fps, latencia_ms, ultimo_heartbeat) VALUES (?, ?, ?, ?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE bateria = VALUES(bateria), senal_gps = VALUES(senal_gps), fps = VALUES(fps), latencia_ms = VALUES(latencia_ms), ultimo_heartbeat = NOW()',
-      [Number(vehiculoId), data.imei || 'N/D', data.bateria ?? 100, data.senal_gps ?? 10, data.fps ?? 12, data.latencia_ms ?? 40]
+      [
+        Number(vehiculoId),
+        data.imei || 'N/D',
+        data.bateria ?? 100,
+        data.senal_gps ?? 10,
+        data.fps ?? 12,
+        data.latencia_ms ?? 40
+      ]
     );
-    const rows = await this.q('SELECT * FROM telemetria WHERE vehiculo_id = ? LIMIT 1', [Number(vehiculoId)]);
+
+    const rows = await this.q(
+      'SELECT * FROM telemetria WHERE vehiculo_id = ? LIMIT 1',
+      [Number(vehiculoId)]
+    );
+
     return this.row(rows);
   }
 
   async getTelemetry(vehiculoId) {
-    const rows = await this.q('SELECT * FROM telemetria WHERE vehiculo_id = ? LIMIT 1', [Number(vehiculoId)]);
+    const rows = await this.q(
+      'SELECT * FROM telemetria WHERE vehiculo_id = ? LIMIT 1',
+      [Number(vehiculoId)]
+    );
+
     return this.row(rows);
   }
 
@@ -654,46 +948,82 @@ class MySqlStore {
   }
 
   async getKeyConfig() {
-    const rows = await this.q('SELECT alerta_sonora, alerta_vibracion, alerta_visual, numero_emergencia, sensibilidad, umbral_amarillo, umbral_rojo, auto_sos, solicitar_pausa FROM configuracion LIMIT 1');
+    const rows = await this.q(
+      'SELECT alerta_sonora, alerta_vibracion, alerta_visual, numero_emergencia, sensibilidad, umbral_amarillo, umbral_rojo, auto_sos, solicitar_pausa FROM configuracion LIMIT 1'
+    );
+
     return this.row(rows) || null;
   }
 
   async updateConfig(patch) {
-    const allowed = ['alerta_sonora', 'alerta_vibracion', 'alerta_visual', 'numero_emergencia', 'sensibilidad', 'tiempo_ojos_cerrados_ms', 'umbral_amarillo', 'umbral_rojo', 'auto_sos', 'solicitar_pausa'];
-    const keys = Object.keys(patch).filter((k) => allowed.includes(k) && patch[k] !== undefined);
+    const allowed = [
+      'alerta_sonora',
+      'alerta_vibracion',
+      'alerta_visual',
+      'numero_emergencia',
+      'sensibilidad',
+      'tiempo_ojos_cerrados_ms',
+      'umbral_amarillo',
+      'umbral_rojo',
+      'auto_sos',
+      'solicitar_pausa'
+    ];
+
+    const keys = Object.keys(patch).filter(
+      (k) => allowed.includes(k) && patch[k] !== undefined
+    );
+
     if (keys.length) {
       await this.q(
         `UPDATE configuracion SET ${keys.map((k) => `${k} = ?`).join(', ')} WHERE id = 1`,
         keys.map((k) => (typeof patch[k] === 'boolean' ? patch[k] ? 1 : 0 : patch[k]))
       );
     }
+
     return this.getConfig();
   }
 
   async listSafeZones() {
-    const rows = await this.q('SELECT * FROM zonas_seguras ORDER BY nombre');
-    return rows.map((r) => ({ ...r, lat: Number(r.lat), lng: Number(r.lng) }));
+    const rows = await this.q(
+      'SELECT * FROM zonas_seguras ORDER BY nombre'
+    );
+
+    return rows.map((r) => ({
+      ...r,
+      lat: Number(r.lat),
+      lng: Number(r.lng)
+    }));
   }
 }
 
 async function createStore() {
   const memory = require('./seed').buildStore();
+
   if (process.env.MYSQL_URL) {
     try {
       const pool = mysql.createPool(process.env.MYSQL_URL);
       await pool.query('SELECT 1');
+
       console.log('[storage] Conectado a MySQL. Modo persistente.');
+
       const store = new MySqlStore(pool);
       store.motor = 'mysql';
+
       return store;
     } catch (err) {
       memory.fallbackReason = err.message;
-      console.warn('[storage] No se pudo conectar a MySQL, usando almacenamiento en memoria.', err.message);
+
+      console.warn(
+        '[storage] No se pudo conectar a MySQL, usando almacenamiento en memoria.',
+        err.message
+      );
     }
   }
+
   const store = new MemoryStore(memory);
   store.motor = 'memory';
   store.fallbackReason = memory.fallbackReason || null;
+
   return store;
 }
 
