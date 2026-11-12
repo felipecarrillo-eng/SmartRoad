@@ -1,5 +1,3 @@
-USE smartroad_sos;
-
 -- Ejecutar solo en bases creadas antes de la funcionalidad de registro de conductores.
 ALTER TABLE usuarios
   ADD COLUMN documento VARCHAR(30);

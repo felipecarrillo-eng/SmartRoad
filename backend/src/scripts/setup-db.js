@@ -16,6 +16,7 @@ async function setup() {
     const statements = sql
       .split(/;\s*\n/)
       .map((s) => s.replace(/^\s*--.*$/gm, '').trim())
+      .filter((s) => !/^CREATE DATABASE\b/i.test(s) && !/^USE\b/i.test(s))
       .filter(Boolean);
     for (const stmt of statements) {
       try {
