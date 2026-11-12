@@ -364,6 +364,61 @@ class MySqlStore {
     return this.row(rows);
   }
 
+  async listUsers() {
+    return this.q(
+      `SELECT id, nombre, email, rol, activo, documento, licencia, telefono, empresa,
+              placa, tipo_vehiculo, tipo_sangre, verificacion_estado, creado
+       FROM usuarios
+       ORDER BY id`
+    );
+  }
+
+  async createUser(user) {
+    const [result] = await this.pool.execute(
+      `INSERT INTO usuarios
+        (nombre, email, password_hash, rol, activo, placa, tipo_vehiculo, tipo_sangre)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        user.nombre,
+        user.email,
+        user.password_hash,
+        user.rol,
+        user.activo ? 1 : 0,
+        user.placa,
+        user.tipo_vehiculo,
+        user.tipo_sangre
+      ]
+    );
+    return this.getUserById(result.insertId);
+  }
+
+  async updateUser(id, patch) {
+    const allowed = [
+      'nombre',
+      'email',
+      'password_hash',
+      'rol',
+      'activo',
+      'placa',
+      'tipo_vehiculo',
+      'tipo_sangre'
+    ];
+    const keys = Object.keys(patch).filter((key) => allowed.includes(key));
+    if (!keys.length) return this.getUserById(id);
+    const values = keys.map((key) => patch[key]);
+    values.push(id);
+    await this.q(
+      `UPDATE usuarios SET ${keys.map((key) => `${key} = ?`).join(', ')} WHERE id = ?`,
+      values
+    );
+    return this.getUserById(id);
+  }
+
+  async deleteUser(id) {
+    const result = await this.q('DELETE FROM usuarios WHERE id = ?', [id]);
+    return result.affectedRows > 0;
+  }
+
   async registerDriver(data) {
     try {
       const [result] = await this.pool.execute(

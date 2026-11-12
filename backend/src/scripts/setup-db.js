@@ -10,13 +10,13 @@ async function setup() {
     process.exit(0);
   }
   const conn = await mysql.createConnection(url);
-  const schemaFiles = ['schema.sql', 'crud_schema.sql'];
+  const schemaFiles = ['schema.sql', 'crud_schema.sql', 'migration_driver_registration.sql'];
   for (const schemaFile of schemaFiles) {
     const sql = fs.readFileSync(path.join(__dirname, '..', '..', 'database', schemaFile), 'utf8');
     const statements = sql
       .split(/;\s*\n/)
-      .map((s) => s.trim())
-      .filter((s) => s.length && !s.startsWith('--'));
+      .map((s) => s.replace(/^\s*--.*$/gm, '').trim())
+      .filter(Boolean);
     for (const stmt of statements) {
       try {
         await conn.query(stmt);
