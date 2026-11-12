@@ -85,11 +85,10 @@ export default function Login() {
               >
                 {show ? <EyeOff size={16} className="animate-pulse" /> : <Eye size={16} />}
               </button>
-
-              <div className="border-t border-border pt-4 text-center">
-                <p className="text-xs text-muted">¿Eres conductor y aún no tienes cuenta?</p>
-                <Link to="/registro-conductor" className="mt-1 inline-block text-xs font-bold text-info hover:underline">Registrarme y validar mis documentos</Link>
-              </div>
+            </div>
+            <div className="border-t border-border pt-4 text-center">
+              <p className="text-xs text-muted">¿Eres conductor y aún no tienes cuenta?</p>
+              <Link to="/registro-conductor" className="mt-1 inline-block text-xs font-bold text-info hover:underline">Registrarme y validar mis documentos</Link>
             </div>
           </div>
 

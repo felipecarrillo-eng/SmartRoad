@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, CarFront, CheckCircle2, Loader2, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, CarFront, CheckCircle2, Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react';
 import { api } from '../api/client';
 
 const initial = {
@@ -14,6 +14,7 @@ export default function RegistroConductor() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [done, setDone] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const update = (key) => (event) => setForm((current) => ({ ...current, [key]: event.target.value }));
 
   async function submit(event) {
@@ -73,7 +74,27 @@ export default function RegistroConductor() {
             {fields.map(([key, label, type, placeholder, required]) => (
               <label key={key} className="text-[11px] font-bold uppercase tracking-widest text-muted">
                 {label}{required && ' *'}
-                <input className="field mt-1.5 normal-case tracking-normal" type={type} placeholder={placeholder} value={form[key]} onChange={update(key)} required={required} minLength={key === 'password' ? 8 : undefined} />
+                <span className={key === 'password' ? 'relative mt-1.5 block' : 'block'}>
+                  <input
+                    className={`field normal-case tracking-normal ${key === 'password' ? 'pr-10' : ''}`}
+                    type={key === 'password' && showPassword ? 'text' : type}
+                    placeholder={placeholder}
+                    value={form[key]}
+                    onChange={update(key)}
+                    required={required}
+                    minLength={key === 'password' ? 8 : undefined}
+                  />
+                  {key === 'password' && (
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((visible) => !visible)}
+                      aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                      className={`absolute right-3 top-1/2 -translate-y-1/2 transition-colors ${showPassword ? 'text-danger' : 'text-faint hover:text-text'}`}
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  )}
+                </span>
               </label>
             ))}
             <label className="text-[11px] font-bold uppercase tracking-widest text-muted">Tipo de sangre *
