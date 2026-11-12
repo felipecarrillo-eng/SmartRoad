@@ -21,8 +21,13 @@ async function setup() {
       try {
         await conn.query(stmt);
       } catch (error) {
-        // MySQL no tiene CREATE INDEX IF NOT EXISTS; ignora únicamente índices ya existentes.
-        if (error.code !== 'ER_DUP_KEYNAME' && error.errno !== 1061) throw error;
+        // Las migraciones son repetibles: ignora únicamente índices o columnas ya existentes.
+        if (
+          error.code !== 'ER_DUP_KEYNAME' &&
+          error.code !== 'ER_DUP_FIELDNAME' &&
+          error.errno !== 1061 &&
+          error.errno !== 1060
+        ) throw error;
       }
     }
   }
