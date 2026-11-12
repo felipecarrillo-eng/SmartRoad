@@ -8,6 +8,12 @@ ALTER TABLE usuarios
 ALTER TABLE usuarios
   ADD COLUMN empresa VARCHAR(120);
 ALTER TABLE usuarios
+  ADD COLUMN placa VARCHAR(20);
+ALTER TABLE usuarios
+  ADD COLUMN tipo_vehiculo VARCHAR(80);
+ALTER TABLE usuarios
+  ADD COLUMN tipo_sangre VARCHAR(5);
+ALTER TABLE usuarios
   ADD COLUMN verificacion_estado ENUM('PENDIENTE','VERIFICADO','RECHAZADO') NOT NULL DEFAULT 'PENDIENTE';
 
 ALTER TABLE conductores
