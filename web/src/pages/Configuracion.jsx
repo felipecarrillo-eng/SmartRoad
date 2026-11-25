@@ -44,7 +44,7 @@ export default function Configuracion() {
           <div className="grid gap-4 sm:grid-cols-3">
             <Option icon={Volume2} title="Alerta sonora" desc="Tono agudo para despertar al conductor (RF2 / RNF6)" checked={form.alerta_sonora} onChange={(v) => set('alerta_sonora', v)} />
             <Option icon={Vibrate} title="Vibración" desc="Vibración en el volante o dispositivo" checked={form.alerta_vibracion} onChange={(v) => set('alerta_vibracion', v)} />
-            <Option icon={Eye} title="Alerta visual" desc="Luz del semáforo de riesgo (RF8)" checked={form.alerta_visual} onChange={(v) => set('alerta_visual', v)} />
+            <Option icon={Eye} title="Alerta visual" desc="Muestra zonas seguras sugeridas ante microsueño con riesgo crítico (RF8)" checked={form.alerta_visual} onChange={(v) => set('alerta_visual', v)} />
           </div>
         </div>
 
@@ -126,7 +126,7 @@ export default function Configuracion() {
           <dl className="space-y-3 text-xs">
             <Row k="Alerta sonora" v={form.alerta_sonora ? 'Activada' : 'Desactivada'} tone={form.alerta_sonora ? 'ok' : 'no'} />
             <Row k="Vibración" v={form.alerta_vibracion ? 'Activada' : 'Desactivada'} tone={form.alerta_vibracion ? 'ok' : 'no'} />
-            <Row k="Alerta visual (RF8)" v={form.alerta_visual ? 'Activada' : 'Solo semáforo físico'} tone="muted" />
+            <Row k="Alerta visual (RF8)" v={form.alerta_visual ? 'Activada · sugiere parada segura' : 'Desactivada'} tone={form.alerta_visual ? 'ok' : 'no'} />
             <Row k="Emergencia" v={form.numero_emergencia} tone="muted" mono />
             <Row k="Respuesta (RNF1)" v="≤ 2 segundos" tone="ok" />
             <Row k="Acceso" v={isAdmin ? 'Administrador' : 'Solo lectura'} tone={isAdmin ? 'ok' : 'no'} />

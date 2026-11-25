@@ -1,10 +1,38 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { useApp } from '../store/AppContext';
-import { Users, Phone, FileText, Coffee, Route, Clock3, Download, FileDown, ShieldCheck } from 'lucide-react';
+import { Users, Phone, FileText, Coffee, Route, Clock3, Download, FileDown, ShieldCheck, Thermometer, Apple, Headphones, AlertTriangle } from 'lucide-react';
 import { RiskBadge, Meter, Spinner, Empty } from '../components/ui';
 import { fmtDate, toCsv, download } from '../utils/format';
 import { downloadDriverPdf } from '../utils/pdf';
+
+const fatigueTips = [
+  {
+    icon: Clock3,
+    title: 'Programa pausas cada 2 horas o 200 km',
+    description: 'Detente en un lugar autorizado, camina un poco y estira las piernas. Hazlo antes si notas cansancio.'
+  },
+  {
+    icon: Coffee,
+    title: 'Café y siesta breve',
+    description: 'Ya estacionado en un lugar seguro, una bebida con cafeína (si es adecuada para ti) y una siesta de unos 20 minutos pueden ayudar temporalmente. No reemplazan dormir lo suficiente.'
+  },
+  {
+    icon: Thermometer,
+    title: 'Mantén un ambiente cómodo',
+    description: 'Ventila el vehículo y evita el calor excesivo. El aire fresco puede mejorar la comodidad, pero no evita ni corrige el microsueño.'
+  },
+  {
+    icon: Apple,
+    title: 'Usa snacks solo como apoyo',
+    description: 'Fruta, frutos secos o chicle pueden ser un estímulo momentáneo; masticar no recupera el sueño ni hace seguro seguir conduciendo con somnolencia.'
+  },
+  {
+    icon: Headphones,
+    title: 'Conversación o audio, sin distracciones',
+    description: 'Hablar con un acompañante o escuchar un pódcast puede variar la rutina, pero no previene la fatiga. No manipules el teléfono mientras conduces.'
+  }
+];
 
 export default function Conductores() {
   const { pushToast, user } = useApp();
@@ -78,6 +106,27 @@ export default function Conductores() {
 
   return (
     <div className="space-y-6">
+      <section className="card p-5 sm:p-6">
+        <div className="mb-4">
+          <p className="section-title">Consejos para prevenir la fatiga en la vía</p>
+          <p className="mt-1 text-xs text-muted">Hábitos de apoyo para el viaje; ante somnolencia, la prioridad es detenerse de forma segura y descansar.</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {fatigueTips.map(({ icon: Icon, title, description }) => (
+            <article key={title} className="rounded-xl border border-border-soft bg-surface-2 p-4">
+              <p className="flex items-center gap-2 text-xs font-bold text-text">
+                <Icon size={16} className="shrink-0 text-info" /> {title}
+              </p>
+              <p className="mt-2 text-[11px] leading-relaxed text-muted">{description}</p>
+            </article>
+          ))}
+        </div>
+        <p className="mt-4 flex items-start gap-2 rounded-lg border border-danger/40 bg-danger/10 p-3 text-xs font-semibold leading-relaxed text-danger-bright">
+          <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+          Si aparecen señales de microsueño o peligro, no intentes combatirlas con café, comida, ventanas abiertas o música: busca una parada segura y descansa antes de continuar.
+        </p>
+      </section>
+
       <div className="card overflow-x-auto">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
           <p className="section-title">Seguimiento del estado de cada conductor (RF10)</p>

@@ -8,14 +8,46 @@ import { Semaphore } from './ui';
 export default function CriticalAlertModal({ alert }) {
   const { actionAlert, dismissCritical, config, pushToast } = useApp();
   const [zones, setZones] = useState(null);
+  const [zonesLoading, setZonesLoading] = useState(false);
+  const [zonesError, setZonesError] = useState(null);
   const [busy, setBusy] = useState(null);
   const [, setTick] = useState(0);
+  const shouldSuggestSafeStop = config?.alerta_visual
+    && alert.riesgo === 'CRITICO'
+    && ['MICRO_SUENO', 'SOMNOLENCIA_ALTA'].includes(alert.tipo);
 
   useEffect(() => {
-    setZones(null);
     const t = setInterval(() => setTick((x) => x + 1), 1000);
     return () => clearInterval(t);
   }, [alert]);
+
+  useEffect(() => {
+    let active = true;
+    setZones(null);
+    setZonesError(null);
+    setZonesLoading(false);
+
+    if (!shouldSuggestSafeStop) return () => { active = false; };
+
+    if (alert.lat == null || alert.lng == null || !Number.isFinite(Number(alert.lat)) || !Number.isFinite(Number(alert.lng))) {
+      setZonesError('No hay una ubicación GPS válida para buscar zonas seguras.');
+      return () => { active = false; };
+    }
+
+    setZonesLoading(true);
+    api.safeZonesNear(alert.lat, alert.lng)
+      .then(({ zonas }) => {
+        if (active) setZones(zonas);
+      })
+      .catch((error) => {
+        if (active) setZonesError(error.message || 'No fue posible consultar zonas seguras.');
+      })
+      .finally(() => {
+        if (active) setZonesLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [alert, shouldSuggestSafeStop]);
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -23,11 +55,16 @@ export default function CriticalAlertModal({ alert }) {
   }, []);
 
   const loadZones = async () => {
+    setZonesLoading(true);
+    setZonesError(null);
     try {
       const { zonas } = await api.safeZonesNear(alert.lat, alert.lng);
       setZones(zonas);
-    } catch {
-      setZones([]);
+    } catch (error) {
+      setZonesError(error.message || 'No fue posible consultar zonas seguras.');
+    }
+    finally {
+      setZonesLoading(false);
     }
   };
 
@@ -127,14 +164,25 @@ export default function CriticalAlertModal({ alert }) {
           </div>
         </div>
 
-        {zones && (
+        {shouldSuggestSafeStop && (
+          <div className="mx-6 mb-3 rounded-xl border border-danger/50 bg-danger/10 p-4">
+            <p className="text-sm font-extrabold text-danger-bright">Peligro: microsueño detectado</p>
+            <p className="mt-1 text-xs leading-relaxed text-text">
+              Detente en un lugar autorizado y seguro para descansar. No frenes ni estaciones sobre la vía; las zonas listadas son sugerencias y debes confirmar que sea seguro llegar a ellas.
+            </p>
+          </div>
+        )}
+
+        {(shouldSuggestSafeStop || zones) && (
           <div className="mx-6 mb-2 rounded-xl border border-success/30 bg-success/5 p-4 animate-rise">
             <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-success">
               <Navigation size={14} /> Zonas seguras cerca del vehículo
             </p>
             <div className="mt-3 grid gap-2 sm:grid-cols-3">
-              {zones.length === 0 && <p className="text-xs text-muted">No se encontraron zonas cercanas.</p>}
-              {zones.map((z) => (
+              {zonesLoading && <p className="text-xs text-muted">Buscando posibles paradas seguras…</p>}
+              {zonesError && <p className="text-xs text-danger-bright">{zonesError}</p>}
+              {zones?.length === 0 && !zonesLoading && !zonesError && <p className="text-xs text-muted">No se encontraron zonas cercanas.</p>}
+              {zones?.map((z) => (
                 <button
                   key={z.id}
                   onClick={() => run('ZONA_SEGURA', z.nombre)}
@@ -157,10 +205,10 @@ export default function CriticalAlertModal({ alert }) {
           <button
             className="btn-success flex-1 min-w-[180px] !bg-warning !text-black hover:!brightness-110"
             onClick={zones ? () => setZones(null) : loadZones}
-            disabled={busy}
+            disabled={busy || zonesLoading}
           >
             <Navigation size={17} />
-            {zones ? 'Ocultar zonas' : 'Buscar zona segura'}
+            {zonesLoading ? 'Buscando…' : zones ? 'Ocultar zonas' : 'Buscar zona segura'}
           </button>
           <button className="btn-primary flex-1 min-w-[180px]" onClick={() => run('EMERGENCIA_LLAMADA')} disabled={busy === 'EMERGENCIA_LLAMADA'}>
             <PhoneCall size={17} />
