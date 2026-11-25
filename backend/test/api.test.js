@@ -112,6 +112,22 @@ test('GET /api/system/logs exige autenticación y rol admin', async () => {
   assert.equal(conConductor.status, 403);
 });
 
+test('PUT /api/config permite que un conductor autenticado cambie la configuración', async () => {
+  const login = await request('/api/auth/login', {
+    method: 'POST',
+    body: { email: 'juan@smartroad-demo.com', password: 'Conductor123' }
+  });
+  assert.equal(login.status, 200);
+
+  const update = await request('/api/config', {
+    method: 'PUT',
+    body: { alerta_visual: true },
+    token: login.json.token
+  });
+  assert.equal(update.status, 200);
+  assert.equal(update.json.config.alerta_visual, true);
+});
+
 test('GET /api/docs expone la documentación OpenAPI', async () => {
   const res = await fetch(base + '/api/docs');
   assert.equal(res.status, 200);

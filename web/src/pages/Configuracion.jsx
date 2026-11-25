@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { useApp } from '../store/AppContext';
-import { Volume2, Vibrate, Eye, PhoneCall, Gauge, Save, Timer, AlertTriangle } from 'lucide-react';
+import { Volume2, Vibrate, Eye, PhoneCall, Gauge, Save, Timer } from 'lucide-react';
 import { Toggle, Spinner } from '../components/ui';
 
 export default function Configuracion() {
-  const { config, user, pushToast } = useApp();
+  const { config, pushToast } = useApp();
   const [form, setForm] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -14,13 +14,8 @@ export default function Configuracion() {
   }, [config, form]);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
-  const isAdmin = user?.rol === 'admin';
 
   const save = async () => {
-    if (!isAdmin) {
-      pushToast('Solo administradores pueden modificar la configuración', 'warning');
-      return;
-    }
     setBusy(true);
     try {
       const { config: saved } = await api.updateConfig(form);
@@ -86,7 +81,7 @@ export default function Configuracion() {
               <label className="mb-1.5 flex items-center gap-1.5 text-xs font-bold">
                 <PhoneCall size={14} className="text-info" /> Número de emergencia
               </label>
-              <input className="field font-mono" value={form.numero_emergencia} onChange={(e) => set('numero_emergencia', e.target.value)} disabled={!isAdmin} />
+              <input className="field font-mono" value={form.numero_emergencia} onChange={(e) => set('numero_emergencia', e.target.value)} />
             </div>
             <div className="space-y-3 sm:pt-5">
               <div className="flex items-center justify-between rounded-lg border border-border-soft bg-surface-2 px-4 py-3">
@@ -94,14 +89,14 @@ export default function Configuracion() {
                   <p className="text-xs font-bold">SOS automático (RF4)</p>
                   <p className="text-[11px] text-faint">Después de N segundos sin reacción</p>
                 </div>
-                <Toggle checked={form.auto_sos} onChange={(v) => set('auto_sos', v)} disabled={!isAdmin} />
+                <Toggle checked={form.auto_sos} onChange={(v) => set('auto_sos', v)} />
               </div>
               <div className="flex items-center justify-between rounded-lg border border-border-soft bg-surface-2 px-4 py-3">
                 <div>
                   <p className="text-xs font-bold">Sugerir pausa (RF9)</p>
                   <p className="text-[11px] text-faint">Aviso automático al detectar fatiga</p>
                 </div>
-                <Toggle checked={form.solicitar_pausa} onChange={(v) => set('solicitar_pausa', v)} disabled={!isAdmin} />
+                <Toggle checked={form.solicitar_pausa} onChange={(v) => set('solicitar_pausa', v)} />
               </div>
             </div>
           </div>
@@ -111,7 +106,7 @@ export default function Configuracion() {
               <Timer size={14} className="text-info" /> Tiempo de cierre de ojos para considerar micro sueño (RF1)
             </label>
             <div className="mt-3 flex items-center gap-3">
-              <input type="range" min={400} max={3000} step={100} value={form.tiempo_ojos_cerrados_ms} onChange={(e) => set('tiempo_ojos_cerrados_ms', Number(e.target.value))} className="flex-1 accent-red-500" disabled={!isAdmin} />
+              <input type="range" min={400} max={3000} step={100} value={form.tiempo_ojos_cerrados_ms} onChange={(e) => set('tiempo_ojos_cerrados_ms', Number(e.target.value))} className="flex-1 accent-red-500" />
               <span className="w-24 text-right font-mono text-sm font-bold text-text tabular">
                 {((form.tiempo_ojos_cerrados_ms || 0) / 1000).toFixed(1)} s
               </span>
@@ -129,18 +124,12 @@ export default function Configuracion() {
             <Row k="Alerta visual (RF8)" v={form.alerta_visual ? 'Activada · sugiere parada segura' : 'Desactivada'} tone={form.alerta_visual ? 'ok' : 'no'} />
             <Row k="Emergencia" v={form.numero_emergencia} tone="muted" mono />
             <Row k="Respuesta (RNF1)" v="≤ 2 segundos" tone="ok" />
-            <Row k="Acceso" v={isAdmin ? 'Administrador' : 'Solo lectura'} tone={isAdmin ? 'ok' : 'no'} />
+            <Row k="Acceso" v="Edición habilitada" tone="ok" />
           </dl>
 
-          <button onClick={save} disabled={busy || !isAdmin} className="btn-primary mt-5 w-full">
+          <button onClick={save} disabled={busy} className="btn-primary mt-5 w-full">
             <Save size={16} /> {busy ? 'Guardando…' : 'Guardar configuración'}
           </button>
-
-          {!isAdmin && (
-            <p className="mt-3 flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2.5 text-[11px] text-warning">
-              <AlertTriangle size={14} className="mt-0.5 shrink-0" /> Guardar configuración está restringido. Inicie sesión como administrador.
-            </p>
-          )}
         </div>
 
         <div className="card p-6">
